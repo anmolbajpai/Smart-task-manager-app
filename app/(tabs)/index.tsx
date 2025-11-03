@@ -1,98 +1,193 @@
-import { Image } from 'expo-image';
-import { Platform, StyleSheet } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { View, Text, ScrollView, StyleSheet, TouchableOpacity } from "react-native";
+import { Ionicons } from "@expo/vector-icons";
+import { PieChart } from "react-native-chart-kit";
+import { Dimensions } from "react-native";
+import Animated, { FadeInDown } from "react-native-reanimated";
 
-import { HelloWave } from '@/components/hello-wave';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
-import { Link } from 'expo-router';
+const screenWidth = Dimensions.get("window").width;
 
 export default function HomeScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Welcome!</ThemedText>
-        <HelloWave />
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 1: Try it</ThemedText>
-        <ThemedText>
-          Edit <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> to see changes.
-          Press{' '}
-          <ThemedText type="defaultSemiBold">
-            {Platform.select({
-              ios: 'cmd + d',
-              android: 'cmd + m',
-              web: 'F12',
-            })}
-          </ThemedText>{' '}
-          to open developer tools.
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <Link href="/modal">
-          <Link.Trigger>
-            <ThemedText type="subtitle">Step 2: Explore</ThemedText>
-          </Link.Trigger>
-          <Link.Preview />
-          <Link.Menu>
-            <Link.MenuAction title="Action" icon="cube" onPress={() => alert('Action pressed')} />
-            <Link.MenuAction
-              title="Share"
-              icon="square.and.arrow.up"
-              onPress={() => alert('Share pressed')}
-            />
-            <Link.Menu title="More" icon="ellipsis">
-              <Link.MenuAction
-                title="Delete"
-                icon="trash"
-                destructive
-                onPress={() => alert('Delete pressed')}
-              />
-            </Link.Menu>
-          </Link.Menu>
-        </Link>
+  // Example user data (replace with your authentication context or Supabase user)
+  const [userName, setUserName] = useState("Mayank");
+  const [reminders, setReminders] = useState([
+    { id: 1, title: "Complete project", time: "10:00 AM" },
+    { id: 2, title: "Team meeting", time: "2:00 PM" },
+  ]);
+  const [taskData, setTaskData] = useState({
+    completed: 7,
+    pending: 3,
+  });
 
-        <ThemedText>
-          {`Tap the Explore tab to learn more about what's included in this starter app.`}
-        </ThemedText>
-      </ThemedView>
-      <ThemedView style={styles.stepContainer}>
-        <ThemedText type="subtitle">Step 3: Get a fresh start</ThemedText>
-        <ThemedText>
-          {`When you're ready, run `}
-          <ThemedText type="defaultSemiBold">npm run reset-project</ThemedText> to get a fresh{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> directory. This will move the current{' '}
-          <ThemedText type="defaultSemiBold">app</ThemedText> to{' '}
-          <ThemedText type="defaultSemiBold">app-example</ThemedText>.
-        </ThemedText>
-      </ThemedView>
-    </ParallaxScrollView>
+  // Chart data
+  const chartData = [
+    {
+      name: "Completed",
+      population: taskData.completed,
+      color: "#4CAF50",
+      legendFontColor: "#333",
+      legendFontSize: 14,
+    },
+    {
+      name: "Pending",
+      population: taskData.pending,
+      color: "#F44336",
+      legendFontColor: "#333",
+      legendFontSize: 14,
+    },
+  ];
+
+  // Features list
+  const features = [
+    {
+      icon: "notifications",
+      title: "Smart Reminders",
+      desc: "Get notified for upcoming deadlines and daily goals.",
+      color: "#FFA726",
+    },
+    {
+      icon: "mic",
+      title: "Voice Commands",
+      desc: "Add tasks or reminders using speech recognition.",
+      color: "#42A5F5",
+    },
+    {
+      icon: "bar-chart",
+      title: "Analytics",
+      desc: "Visualize your progress with daily stats.",
+      color: "#AB47BC",
+    },
+  ];
+
+  return (
+    <ScrollView style={styles.container}>
+      <Animated.View entering={FadeInDown.duration(700)}>
+        <Text style={styles.welcome}>Welcome back,</Text>
+        <Text style={styles.username}>{userName} 👋</Text>
+      </Animated.View>
+
+      {/* Reminders Section */}
+      <Animated.View entering={FadeInDown.delay(200).duration(700)} style={styles.section}>
+        <Text style={styles.sectionTitle}>Today's Reminders</Text>
+        {reminders.map((reminder) => (
+          <View key={reminder.id} style={styles.reminderCard}>
+            <Ionicons name="alarm-outline" size={22} color="#FF7043" />
+            <View style={{ marginLeft: 10 }}>
+              <Text style={styles.reminderTitle}>{reminder.title}</Text>
+              <Text style={styles.reminderTime}>{reminder.time}</Text>
+            </View>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* Task Progress Chart */}
+      <Animated.View entering={FadeInDown.delay(400).duration(700)} style={styles.section}>
+        <Text style={styles.sectionTitle}>Your Task Progress</Text>
+        <PieChart
+          data={chartData}
+          width={screenWidth - 40}
+          height={180}
+          chartConfig={{
+            backgroundColor: "#fff",
+            backgroundGradientFrom: "#f9f9f9",
+            backgroundGradientTo: "#fff",
+            color: (opacity = 1) => `rgba(0, 0, 0, ${opacity})`,
+          }}
+          accessor={"population"}
+          backgroundColor={"transparent"}
+          paddingLeft={"15"}
+          hasLegend={true}
+          absolute
+        />
+      </Animated.View>
+
+      {/* Features Section */}
+      <Animated.View entering={FadeInDown.delay(600).duration(700)} style={styles.section}>
+        <Text style={styles.sectionTitle}>App Features</Text>
+        {features.map((feature, index) => (
+          <View key={index} style={[styles.featureCard, { backgroundColor: feature.color + "20" }]}>
+            <Ionicons name={feature.icon as any} size={26} color={feature.color} />
+            <View style={{ marginLeft: 10, flex: 1 }}>
+              <Text style={styles.featureTitle}>{feature.title}</Text>
+              <Text style={styles.featureDesc}>{feature.desc}</Text>
+            </View>
+          </View>
+        ))}
+      </Animated.View>
+
+      {/* Add Task Button */}
+      {/* <TouchableOpacity style={styles.addButton}>
+        <Ionicons name="add-circle" size={60} color="#4CAF50" />
+      </TouchableOpacity> */}
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
+  container: {
+    flex: 1,
+    backgroundColor: "#FAFAFA",
+    padding: 20,
   },
-  stepContainer: {
-    gap: 8,
-    marginBottom: 8,
+  welcome: {
+    fontSize: 20,
+    color: "#444",
   },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+  username: {
+    fontSize: 30,
+    fontWeight: "bold",
+    color: "#2E7D32",
+    marginBottom: 15,
+  },
+  section: {
+    backgroundColor: "#fff",
+    borderRadius: 20,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: "#000",
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: "600",
+    color: "#333",
+    marginBottom: 10,
+  },
+  reminderCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 8,
+  },
+  reminderTitle: {
+    fontSize: 16,
+    fontWeight: "500",
+  },
+  reminderTime: {
+    color: "#666",
+    fontSize: 13,
+  },
+  featureCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    borderRadius: 15,
+    padding: 12,
+    marginBottom: 12,
+  },
+  featureTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    color: "#333",
+  },
+  featureDesc: {
+    fontSize: 13,
+    color: "#555",
+  },
+  addButton: {
+    alignItems: "center",
+    marginTop: 10,
   },
 });
+
