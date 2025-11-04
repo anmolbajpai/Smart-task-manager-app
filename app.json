@@ -1,6 +1,5 @@
 {
   "expo": {
-<<<<<<< HEAD
     "name": "taskmanager",
     "slug": "taskmanager",
     "version": "1.0.0",
@@ -11,23 +10,6 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true
-=======
-    "name": "Task_Notifier_App",
-    "slug": "Task_Notifier_App",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
-    "scheme": "tasknotifierapp",
-    "userInterfaceStyle": "automatic",
-    "newArchEnabled": true,
-    "ios": {
-      "supportsTablet": true,
-      "bundleIdentifier": "com.yourcompany.tasknotifierapp",
-      "infoPlist": {
-        "NSMicrophoneUsageDescription": "Allow $(PRODUCT_NAME) to access your microphone to add tasks by voice.",
-        "NSSpeechRecognitionUsageDescription": "Allow $(PRODUCT_NAME) to recognize your speech to create tasks."
-      }
->>>>>>> origin/master
     },
     "android": {
       "adaptiveIcon": {
@@ -37,15 +19,7 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-<<<<<<< HEAD
       "predictiveBackGestureEnabled": false
-=======
-      "predictiveBackGestureEnabled": false,
-      "package": "com.yourcompany.tasknotifierapp",
-      "permissions": [
-        "android.permission.RECORD_AUDIO"
-      ]
->>>>>>> origin/master
     },
     "web": {
       "output": "static",
@@ -64,8 +38,6 @@
             "backgroundColor": "#000000"
           }
         }
-<<<<<<< HEAD
-=======
       ],
       [
         "expo-speech-recognition",
@@ -73,21 +45,17 @@
           "microphonePermission": "Allow $(PRODUCT_NAME) to access your microphone to add tasks by voice.",
           "speechRecognitionPermission": "Allow $(PRODUCT_NAME) to recognize your speech to create tasks."
         }
->>>>>>> origin/master
       ]
     ],
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-<<<<<<< HEAD
-=======
     },
     "extra": {
       "router": {},
       "eas": {
         "projectId": "c50433ca-7db7-432d-9838-a9b386faa617"
       }
->>>>>>> origin/master
     }
   }
 }

@@ -1,14 +1,3 @@
-<<<<<<< HEAD
-import { Stack } from "expo-router";
-
-export default function RootLayout() {
-  return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="(tabs)" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="signup" />
-    </Stack>
-=======
 // import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { SafeAreaProvider, SafeAreaView } from "react-native-safe-area-context";
 import { Stack } from 'expo-router';
@@ -35,6 +24,5 @@ export default function RootLayout() {
       </SafeAreaView>
       </SafeAreaProvider>
     // </ThemeProvider>
->>>>>>> origin/master
   );
 }
