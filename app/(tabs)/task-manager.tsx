@@ -1,49 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import { TaskItem } from '@/types/task';
+import { suggestModeAndPriority } from '@/utils/ai';
+import { loadTasks, saveTasks } from '@/utils/storage';
+import { ExpoSpeechRecognitionModule, useSpeechRecognitionEvent } from 'expo-speech-recognition';
 import {
-  View,
-  Text,
-  ScrollView,
-  TouchableOpacity,
-  TextInput,
-  Modal,
-  StyleSheet,
-  Alert,
-  Platform,
-} from 'react-native';
-import {
+  Calendar,
   CheckCircle,
   Circle,
-  Plus,
-  Trash2,
-  X,
-  Save,
+  Clock,
+  Edit3,
+  GripVertical,
   Mic,
   MicOff,
+  Plus,
+  Save,
+  Sparkles,
+  Trash2,
+  X,
 } from 'lucide-react-native';
+import React, { useEffect, useState } from 'react';
 import {
-  useSpeechRecognitionEvent,
-  ExpoSpeechRecognitionModule,
-  AudioEncodingAndroid,
-} from 'expo-speech-recognition';
-
-type Task = {
-  id: string;
-  title: string;
-  description?: string;
-  priority?: string;
-  dueDate?: string;
-  completed: boolean;
-  estimatedTime?: number;
-  category?: string;
-  createdAt?: string;
-};
+  Alert,
+  Modal,
+  Platform,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  View
+} from 'react-native';
+import DraggableFlatList, { RenderItemParams, ScaleDecorator } from 'react-native-draggable-flatlist';
 
 export default function SmartTaskManager() {
   const [currentScreen, setCurrentScreen] = useState('home');
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
   const [medications, setMedications] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null);
+  const [editingTask, setEditingTask] = useState<TaskItem | null>(null);
   const [newTask, setNewTask] = useState('');
   const [stats, setStats] = useState({ total: 0, completed: 0, pending: 0 });
   
@@ -77,34 +69,53 @@ export default function SmartTaskManager() {
     Alert.alert('Error', 'Failed to recognize speech. Please try again.');
   });
 
-  // Sample data on first load
+  // Load tasks on first mount
   useEffect(() => {
-    const sampleTasks = [
-      {
-        id: '1',
-        title: 'Complete project',
-        description: 'Prepare slides for Smart Task Manager',
-        priority: 'urgent',
-        dueDate: new Date(Date.now() + 86400000).toISOString(),
-        completed: false,
-        estimatedTime: 120,
-        category: 'work',
-      },
-      {
-        id: '2',
-        title: 'Morning exercise',
-        description: '30 minutes cardio workout',
-        priority: 'important',
-        dueDate: new Date(Date.now() + 43200000).toISOString(),
-        completed: false,
-        estimatedTime: 30,
-        category: 'health',
-      },
-    ];
-
-    setTasks(sampleTasks);
-    updateStats(sampleTasks);
+    (async () => {
+      const existing = await loadTasks();
+      if (existing.length > 0) {
+        setTasks(existing);
+        updateStats(existing);
+        return;
+      }
+      const sampleTasks: TaskItem[] = [
+        {
+          id: '1',
+          title: 'Complete project',
+          description: 'Prepare slides for Smart Task Manager',
+          priority: 'high',
+          mode: 'important',
+          dueDate: new Date(Date.now() + 86400000).toISOString(),
+          completed: false,
+          estimatedTimeMinutes: 120,
+          category: 'work',
+          createdAt: new Date().toISOString(),
+        },
+        {
+          id: '2',
+          title: 'Morning exercise',
+          description: '30 minutes cardio workout',
+          priority: 'medium',
+          mode: 'important',
+          dueDate: new Date(Date.now() + 43200000).toISOString(),
+          completed: false,
+          estimatedTimeMinutes: 30,
+          category: 'health',
+          createdAt: new Date().toISOString(),
+        },
+      ];
+      setTasks(sampleTasks);
+      updateStats(sampleTasks);
+      await saveTasks(sampleTasks);
+    })();
   }, []);
+
+  // Persist on change
+  useEffect(() => {
+    (async () => {
+      await saveTasks(tasks);
+    })();
+  }, [tasks]);
 
   // Start Voice Recording with Expo Speech Recognition
   const startVoiceRecording = async () => {
@@ -179,9 +190,9 @@ export default function SmartTaskManager() {
   };
 
   // Update statistics
-  const updateStats = (list: Task[]): void => {
+  const updateStats = (list: TaskItem[]): void => {
     const total: number = list.length;
-    const completed: number = list.filter((t: Task) => t.completed).length;
+    const completed: number = list.filter((t: TaskItem) => t.completed).length;
     setStats({ total, completed, pending: total - completed });
   };
 
@@ -191,11 +202,18 @@ export default function SmartTaskManager() {
       Alert.alert('Error', 'Please enter or speak a task title');
       return;
     }
-    const newItem: Task = {
+    const base: Partial<TaskItem> = {
+      title: newTask.trim(),
+    };
+    const ai = suggestModeAndPriority(base);
+    const newItem: TaskItem = {
       id: Date.now().toString(),
-      title: newTask,
+      title: base.title!,
       completed: false,
       createdAt: new Date().toISOString(),
+      mode: ai.mode,
+      priority: ai.priority,
+      aiSuggested: true,
     };
     const updated = [...tasks, newItem];
     setTasks(updated);
@@ -208,7 +226,7 @@ export default function SmartTaskManager() {
 
   // Toggle task completion
   const toggleTask = (id: string): void => {
-    const updated: Task[] = tasks.map((t: Task) =>
+    const updated: TaskItem[] = tasks.map((t: TaskItem) =>
       t.id === id ? { ...t, completed: !t.completed } : t
     );
     setTasks(updated);
@@ -229,12 +247,130 @@ export default function SmartTaskManager() {
           text: 'Delete',
           style: 'destructive',
           onPress: () => {
-            const updated: Task[] = tasks.filter((t: Task) => t.id !== id);
+            const updated: TaskItem[] = tasks.filter((t: TaskItem) => t.id !== id);
             setTasks(updated);
             updateStats(updated);
           },
         },
       ]
+    );
+  };
+
+  // Handle drag and drop
+  const handleDragEnd = ({ data }: { data: TaskItem[] }) => {
+    setTasks(data);
+    updateStats(data);
+  };
+
+  // Get mode badge color
+  const getModeColor = (mode?: string) => {
+    switch (mode) {
+      case 'urgent':
+        return '#EF4444';
+      case 'important':
+        return '#F59E0B';
+      case 'optional':
+        return '#6B7280';
+      default:
+        return '#9CA3AF';
+    }
+  };
+
+  // Get priority badge color
+  const getPriorityColor = (priority?: string) => {
+    switch (priority) {
+      case 'critical':
+        return '#DC2626';
+      case 'high':
+        return '#F59E0B';
+      case 'medium':
+        return '#3B82F6';
+      case 'low':
+        return '#10B981';
+      default:
+        return '#9CA3AF';
+    }
+  };
+
+  // Render task item for drag and drop
+  const renderTaskItem = ({ item, drag, isActive }: RenderItemParams<TaskItem>) => {
+    return (
+      <ScaleDecorator>
+        <TouchableOpacity
+          onLongPress={drag}
+          disabled={isActive}
+          style={[styles.taskCard, isActive && styles.taskCardActive]}
+        >
+          <View style={styles.taskLeft}>
+            <TouchableOpacity onPress={() => toggleTask(item.id)} style={styles.checkboxContainer}>
+              {item.completed ? (
+                <CheckCircle color="#4CAF50" size={22} />
+              ) : (
+                <Circle color="#999" size={22} />
+              )}
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.dragHandle} onLongPress={drag}>
+              <GripVertical color="#999" size={20} />
+            </TouchableOpacity>
+
+            <View style={styles.taskContent}>
+              <View style={styles.taskHeaderRow}>
+                <Text style={[styles.taskTitle, item.completed && styles.completedText]}>
+                  {item.title}
+                </Text>
+                {item.aiSuggested && (
+                  <Sparkles color="#8B5CF6" size={16} style={styles.aiBadge} />
+                )}
+              </View>
+
+              {item.description && (
+                <Text style={styles.taskDescription}>{item.description}</Text>
+              )}
+
+              <View style={styles.taskMeta}>
+                {item.mode && (
+                  <View style={[styles.badge, { backgroundColor: getModeColor(item.mode) + '20' }]}>
+                    <Text style={[styles.badgeText, { color: getModeColor(item.mode) }]}>
+                      {item.mode.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                {item.priority && (
+                  <View style={[styles.badge, { backgroundColor: getPriorityColor(item.priority) + '20' }]}>
+                    <Text style={[styles.badgeText, { color: getPriorityColor(item.priority) }]}>
+                      {item.priority.toUpperCase()}
+                    </Text>
+                  </View>
+                )}
+                {item.dueDate && (
+                  <View style={styles.metaItem}>
+                    <Calendar size={14} color="#6B7280" />
+                    <Text style={styles.metaText}>
+                      {new Date(item.dueDate).toLocaleDateString()}
+                    </Text>
+                  </View>
+                )}
+                {item.estimatedTimeMinutes && (
+                  <View style={styles.metaItem}>
+                    <Clock size={14} color="#6B7280" />
+                    <Text style={styles.metaText}>{item.estimatedTimeMinutes}m</Text>
+                  </View>
+                )}
+              </View>
+            </View>
+          </View>
+
+          <View style={styles.taskActions}>
+            <TouchableOpacity onPress={() => Alert.alert('Edit', 'Edit feature coming soon!')}>
+              <Edit3 size={18} color="#3B82F6" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => deleteTask(item.id)}>
+              <Trash2 size={18} color="#E57373" />
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      </ScaleDecorator>
     );
   };
 
@@ -272,8 +408,8 @@ export default function SmartTaskManager() {
         </Text>
       </View>
 
-      Task List
-       <ScrollView style={styles.scroll}>
+      {/* Task List with Drag and Drop */}
+      <View style={styles.taskListContainer}>
         {tasks.length === 0 ? (
           <View style={styles.emptyState}>
             <Text style={styles.emptyText}>No tasks yet</Text>
@@ -282,39 +418,16 @@ export default function SmartTaskManager() {
             </Text>
           </View>
         ) : (
-          tasks.map((task) => {
-            return (
-              <View  style={styles.taskCard}>
-                <TouchableOpacity onPress={() => toggleTask(task.id)}>
-                  {task.completed ? (
-                    <CheckCircle color="#4CAF50" size={22} />
-                  ) : (
-                    <Circle color="#999" size={22} />
-                  )}
-                </TouchableOpacity>
-
-                <View style={{ flex: 1, marginLeft: 10 }}>
-                  <Text
-                    style={[
-                      styles.taskTitle,
-                      task.completed && styles.completedText,
-                    ]}
-                  >
-                    {task.title}
-                  </Text>
-                  {task.description && (
-                    <Text style={styles.taskDescription}>{task.description}</Text>
-                  )}
-                </View>
-
-                <TouchableOpacity onPress={() => deleteTask(task.id)}>
-                  <Trash2 size={20} color="#E57373" />
-                </TouchableOpacity>
-              </View>
-            );
-          })
+          <DraggableFlatList
+            data={tasks}
+            onDragEnd={handleDragEnd}
+            keyExtractor={(item) => item.id}
+            renderItem={renderTaskItem}
+            contentContainerStyle={styles.taskListContent}
+            ListFooterComponent={() => <View style={{ height: 20 }} />}
+          />
         )}
-      </ScrollView>
+      </View>
       
 
       
@@ -465,7 +578,10 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  scroll: {
+  taskListContainer: {
+    flex: 1,
+  },
+  taskListContent: {
     padding: 20,
   },
   emptyState: {
@@ -490,26 +606,88 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     marginBottom: 10,
     padding: 15,
-    borderRadius: 10,
+    borderRadius: 12,
     elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
+    justifyContent: 'space-between',
+  },
+  taskCardActive: {
+    transform: [{ scale: 1.02 }],
+    elevation: 8,
+    shadowOpacity: 0.3,
+  },
+  taskLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  checkboxContainer: {
+    marginRight: 8,
+  },
+  dragHandle: {
+    marginRight: 8,
+    padding: 4,
+  },
+  taskContent: {
+    flex: 1,
+  },
+  taskHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
   },
   taskTitle: {
     fontSize: 16,
     color: '#333',
-    fontWeight: '500',
+    fontWeight: '600',
+    flex: 1,
   },
   taskDescription: {
     fontSize: 13,
     color: '#666',
-    marginTop: 4,
+    marginBottom: 8,
+  },
+  taskMeta: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    alignItems: 'center',
+    gap: 8,
+  },
+  badge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    marginRight: 6,
+  },
+  badgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginRight: 8,
+  },
+  metaText: {
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  taskActions: {
+    flexDirection: 'row',
+    gap: 12,
+    alignItems: 'center',
+  },
+  aiBadge: {
+    marginLeft: 4,
   },
   completedText: {
     textDecorationLine: 'line-through',
     color: '#999',
+    opacity: 0.6,
   },
   modalOverlay: {
     flex: 1,
