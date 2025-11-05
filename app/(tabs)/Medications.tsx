@@ -19,13 +19,19 @@ import {
     Text,
     TextInput,
     TouchableOpacity,
-    View
+    View,
+    ActivityIndicator
 } from 'react-native';
+
+// API Configuration
+const API_BASE_URL = 'http://localhost:8888/taskmanager/medication';
+const AUTH_TOKEN = '70199'; // Consider moving this to a secure config file
 
 export default function MedicationsScreen() {
   const [medications, setMedications] = useState<MedicationSchedule[]>([]);
   const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
   const [newMedication, setNewMedication] = useState({
     name: '',
     dosage: '',
@@ -33,6 +39,8 @@ export default function MedicationsScreen() {
     times: [] as string[],
     notes: '',
   });
+  const [modalStep, setModalStep] = useState<'times' | 'details'>('times');
+  const [numberOfTimes, setNumberOfTimes] = useState('');
 
   useEffect(() => {
     loadData();
@@ -42,26 +50,148 @@ export default function MedicationsScreen() {
     saveMedications(medications);
   }, [medications]);
 
+  const fetchMedicationsFromAPI = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch(`${API_BASE_URL}/getMedications`, {
+        method: 'GET',
+        headers: {
+          'Authorization': AUTH_TOKEN,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch medications');
+      }
+
+      const data = await response.json();
+      
+      // Transform API response to match local MedicationSchedule format
+      const transformedMedications: MedicationSchedule[] = data.map((med: any, index: number) => ({
+        id: `med_${Date.now()}_${index}`, // Generate unique ID
+        name: med.name,
+        dosage: med.dosage,
+        frequency: 'daily', // Default to daily since API returns "X times a day"
+        times: med.localtimeList && med.localtimeList.length > 0 
+          ? med.localtimeList.map((time: string) => time.substring(0, 5)) // Convert "08:00:00" to "08:00"
+          : [],
+        notes: med.notes || '',
+        // active: true,
+      }));
+
+      setMedications(transformedMedications);
+      saveMedications(transformedMedications);
+    } catch (error) {
+      console.error('Error fetching medications:', error);
+      Alert.alert(
+        'Error',
+        'Failed to load medications from server. Loading local data instead.'
+      );
+      // Fallback to local storage if API fails
+      const loadedMeds = await loadMedications();
+      setMedications(loadedMeds);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   const loadData = async () => {
-    const loadedMeds = await loadMedications();
+    // Fetch medications from API
+    await fetchMedicationsFromAPI();
+    
+    // Load dose logs from local storage
     const loadedLogs = await loadDoseLogs();
-    setMedications(loadedMeds);
     setDoseLogs(loadedLogs);
   };
 
-  const addMedication = () => {
-    if (!newMedication.name.trim() || newMedication.times.length === 0) {
-      Alert.alert('Error', 'Please enter medication name and at least one time');
+  const handleTimesSubmit = () => {
+    const count = parseInt(numberOfTimes);
+    if (isNaN(count) || count < 1 || count > 10) {
+      Alert.alert('Error', 'Please enter a valid number between 1 and 10');
+      return;
+    }
+    
+    // Initialize times array with default values
+    const defaultTimes = Array(count).fill('').map((_, idx) => {
+      const hour = 9 + (idx * 3); // Start at 9am, 3 hours apart
+      return `${hour.toString().padStart(2, '0')}:00`;
+    });
+    
+    setNewMedication({ ...newMedication, times: defaultTimes });
+    setModalStep('details');
+  };
+
+  const addMedication = async (currentMedications: MedicationSchedule[]) => {
+    // Validate required fields
+    if (!newMedication.name.trim() || !newMedication.dosage.trim() || newMedication.times.length === 0) {
+      Alert.alert('Error', 'Please fill in all required fields');
       return;
     }
 
-    const newMed: MedicationSchedule = {
-      id: Date.now().toString(),
-      ...newMedication,
-      createdAt: new Date().toISOString(),
-    };
+    setIsLoading(true);
 
-    setMedications([...medications, newMed]);
+    try {
+      // Prepare the API payload
+      const payload = {
+        name: newMedication.name.trim(),
+        dosage: newMedication.dosage.trim(),
+        frequency: `${newMedication.times.length} times a day`,
+        notes: newMedication.notes.trim() || '',
+        times: newMedication.times.length,
+        localtimeList: newMedication.times
+      };
+
+      // Make the API call
+      const response = await fetch(`${API_BASE_URL}/addMedication`, {
+        method: 'POST',
+        headers: {
+          'Authorization': AUTH_TOKEN,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to add medication');
+      }
+
+      // Create medication object for local storage
+      const medication: MedicationSchedule = {
+        id: data.id || Date.now().toString(), // Use API response ID if available
+        name: newMedication.name,
+        dosage: newMedication.dosage,
+        frequency: newMedication.frequency,
+        times: newMedication.times,
+        notes: newMedication.notes,
+       
+      };
+
+      // Update local state
+      const updatedMedications = [...currentMedications, medication];
+      setMedications(updatedMedications);
+
+      // Schedule reminders for each time
+      // newMedication.times.forEach((time) => {
+      //   scheduleReminder(medication, time);
+      // });
+
+      Alert.alert('Success', 'Medication added successfully!');
+      resetModal();
+    } catch (error) {
+      console.error('Error adding medication:', error);
+      Alert.alert(
+        'Error',
+        error instanceof Error ? error.message : 'Failed to add medication. Please try again.'
+      );
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetModal = () => {
     setNewMedication({
       name: '',
       dosage: '',
@@ -69,20 +199,9 @@ export default function MedicationsScreen() {
       times: [],
       notes: '',
     });
+    setNumberOfTimes('');
+    setModalStep('times');
     setShowAddModal(false);
-
-    // Schedule notifications for first time
-    newMed.times.forEach((time) => {
-      const [hours, minutes] = time.split(':').map(Number);
-      const now = new Date();
-      const scheduledTime = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes);
-      if (scheduledTime <= now) {
-        scheduledTime.setDate(scheduledTime.getDate() + 1);
-      }
-      scheduleReminder(newMed.id, newMed.name, `Time to take ${newMed.dosage}`, scheduledTime);
-    });
-
-    Alert.alert('Success', 'Medication added and reminders scheduled!');
   };
 
   const logDose = (medicationId: string) => {
@@ -131,6 +250,10 @@ export default function MedicationsScreen() {
   };
 
   const removeTime = (index: number) => {
+    if (newMedication.times.length <= 1) {
+      Alert.alert('Error', 'You must have at least one time');
+      return;
+    }
     const newTimes = newMedication.times.filter((_, i) => i !== index);
     setNewMedication({ ...newMedication, times: newTimes });
   };
@@ -223,96 +346,151 @@ export default function MedicationsScreen() {
         visible={showAddModal}
         transparent
         animationType="slide"
-        onRequestClose={() => setShowAddModal(false)}
+        onRequestClose={resetModal}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Medication</Text>
-              <TouchableOpacity onPress={() => setShowAddModal(false)}>
+              <Text style={styles.modalTitle}>
+                {modalStep === 'times' ? 'How many times per day?' : 'Medication Details'}
+              </Text>
+              <TouchableOpacity onPress={resetModal}>
                 <X size={24} color="#333" />
               </TouchableOpacity>
             </View>
 
-            <TextInput
-              style={styles.input}
-              placeholder="Medication name"
-              value={newMedication.name}
-              onChangeText={(text) => setNewMedication({ ...newMedication, name: text })}
-            />
-
-            <TextInput
-              style={styles.input}
-              placeholder="Dosage (e.g., 500mg, 1 tablet)"
-              value={newMedication.dosage}
-              onChangeText={(text) => setNewMedication({ ...newMedication, dosage: text })}
-            />
-
-            <View style={styles.frequencySelector}>
-              <Text style={styles.label}>Frequency</Text>
-              <View style={styles.frequencyButtons}>
-                {(['daily', 'weekly', 'custom'] as const).map((freq) => (
-                  <TouchableOpacity
-                    key={freq}
-                    style={[
-                      styles.frequencyButton,
-                      newMedication.frequency === freq && styles.frequencyButtonActive,
-                    ]}
-                    onPress={() => setNewMedication({ ...newMedication, frequency: freq })}
-                  >
-                    <Text
-                      style={[
-                        styles.frequencyButtonText,
-                        newMedication.frequency === freq && styles.frequencyButtonTextActive,
-                      ]}
-                    >
-                      {freq.charAt(0).toUpperCase() + freq.slice(1)}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            </View>
-
-            <View style={styles.timesSection}>
-              <View style={styles.timesHeader}>
-                <Text style={styles.label}>Times</Text>
-                <TouchableOpacity onPress={addTime} style={styles.addTimeButton}>
-                  <Plus size={18} color="#2563EB" />
-                  <Text style={styles.addTimeText}>Add Time</Text>
-                </TouchableOpacity>
-              </View>
-
-              {newMedication.times.map((time, idx) => (
-                <View key={idx} style={styles.timeInputRow}>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {modalStep === 'times' ? (
+                // Step 1: Ask for number of times
+                <View>
+                  <Text style={styles.stepDescription}>
+                    Enter how many times per day you need to take this medication
+                  </Text>
+                  
                   <TextInput
-                    style={styles.timeInput}
-                    placeholder="HH:MM"
-                    value={time}
-                    onChangeText={(text) => updateTime(idx, text)}
+                    style={styles.input}
+                    placeholder="Number of times (1-10)"
+                    value={numberOfTimes}
+                    onChangeText={setNumberOfTimes}
+                    keyboardType="number-pad"
+                    maxLength={2}
                   />
-                  <TouchableOpacity onPress={() => removeTime(idx)}>
-                    <X size={20} color="#EF4444" />
+
+                  <TouchableOpacity
+                    style={styles.saveButton}
+                    onPress={handleTimesSubmit}
+                  >
+                    <Text style={styles.saveButtonText}>Next</Text>
                   </TouchableOpacity>
                 </View>
-              ))}
-            </View>
+              ) : (
+                // Step 2: Show details form with times
+                <View>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Medication name"
+                    value={newMedication.name}
+                    onChangeText={(text) => setNewMedication({ ...newMedication, name: text })}
+                  />
 
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              placeholder="Notes (optional)"
-              value={newMedication.notes}
-              onChangeText={(text) => setNewMedication({ ...newMedication, notes: text })}
-              multiline
-            />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Dosage (e.g., 500mg, 1 tablet)"
+                    value={newMedication.dosage}
+                    onChangeText={(text) => setNewMedication({ ...newMedication, dosage: text })}
+                  />
 
-            <TouchableOpacity
-              style={styles.saveButton}
-              onPress={addMedication}
-              disabled={!newMedication.name.trim() || newMedication.times.length === 0}
-            >
-              <Save size={20} color="#fff" />
-              <Text style={styles.saveButtonText}>Save Medication</Text>
-            </TouchableOpacity>
+                  <View style={styles.frequencySelector}>
+                    <Text style={styles.label}>Frequency</Text>
+                    <View style={styles.frequencyButtons}>
+                      {(['daily', 'weekly', 'custom'] as const).map((freq) => (
+                        <TouchableOpacity
+                          key={freq}
+                          style={[
+                            styles.frequencyButton,
+                            newMedication.frequency === freq && styles.frequencyButtonActive,
+                          ]}
+                          onPress={() => setNewMedication({ ...newMedication, frequency: freq })}
+                        >
+                          <Text
+                            style={[
+                              styles.frequencyButtonText,
+                              newMedication.frequency === freq && styles.frequencyButtonTextActive,
+                            ]}
+                          >
+                            {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                          </Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </View>
+
+                  <View style={styles.timesSection}>
+                    <View style={styles.timesHeader}>
+                      <Text style={styles.label}>Times ({newMedication.times.length})</Text>
+                      <TouchableOpacity onPress={addTime} style={styles.addTimeButton}>
+                        <Plus size={18} color="#2563EB" />
+                        <Text style={styles.addTimeText}>Add Time</Text>
+                      </TouchableOpacity>
+                    </View>
+
+                    {newMedication.times.map((time, idx) => (
+                      <View key={idx} style={styles.timeInputRow}>
+                        <Text style={styles.timeLabel}>Time {idx + 1}</Text>
+                        <TextInput
+                          style={styles.timeInput}
+                          placeholder="HH:MM"
+                          value={time}
+                          onChangeText={(text) => updateTime(idx, text)}
+                        />
+                        {newMedication.times.length > 1 && (
+                          <TouchableOpacity onPress={() => removeTime(idx)}>
+                            <X size={20} color="#EF4444" />
+                          </TouchableOpacity>
+                        )}
+                      </View>
+                    ))}
+                  </View>
+
+                  <TextInput
+                    style={[styles.input, styles.textArea]}
+                    placeholder="Notes (optional)"
+                    value={newMedication.notes}
+                    onChangeText={(text) => setNewMedication({ ...newMedication, notes: text })}
+                    multiline
+                  />
+
+                  <View style={styles.modalActions}>
+                    <TouchableOpacity
+                      style={styles.backButton}
+                      onPress={() => setModalStep('times')}
+                      disabled={isLoading}
+                    >
+                      <Text style={styles.backButtonText}>Back</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={[
+                        styles.saveButton, 
+                        styles.saveButtonFlex,
+                        (isLoading || !newMedication.name.trim() || newMedication.times.length === 0) && styles.saveButtonDisabled
+                      ]}
+                      onPress={() => addMedication(medications)}
+                      disabled={isLoading || !newMedication.name.trim() || newMedication.times.length === 0}
+                    >
+                      {isLoading ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <>
+                          <Save size={20} color="#fff" />
+                          <Text style={styles.saveButtonText}>Save Medication</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              )}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -568,6 +746,12 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 8,
   },
+  timeLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#374151',
+    minWidth: 60,
+  },
   timeInput: {
     flex: 1,
     borderWidth: 1,
@@ -575,6 +759,31 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     padding: 10,
     fontSize: 16,
+  },
+  stepDescription: {
+    fontSize: 15,
+    color: '#6B7280',
+    marginBottom: 20,
+    lineHeight: 22,
+  },
+  modalActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  backButton: {
+    backgroundColor: '#F3F4F6',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  backButtonText: {
+    color: '#374151',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+  saveButtonFlex: {
+    flex: 1,
   },
   saveButton: {
     backgroundColor: '#10B981',
@@ -585,10 +794,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
   },
+  saveButtonDisabled: {
+    backgroundColor: '#9CA3AF',
+    opacity: 0.6,
+  },
   saveButtonText: {
     color: '#fff',
     fontWeight: '700',
     fontSize: 16,
   },
 });
-

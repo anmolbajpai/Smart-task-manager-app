@@ -16,6 +16,8 @@ export interface TaskItem {
   createdAt: string; // ISO string
   updatedAt?: string; // ISO string
   aiSuggested?: boolean;
+  notificationId?: string; // ✅ added this line
+  [key: string]: any;
 }
 
 export interface MedicationSchedule {

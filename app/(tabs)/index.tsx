@@ -128,7 +128,7 @@ export default function HomeScreen() {
     setUsername(null);
     setToken(null);
     Alert.alert("Success", "Logged out successfully!");
-    router.push("/login");
+    router.push("/");
   };
 
   const features = [
@@ -170,7 +170,7 @@ export default function HomeScreen() {
       </Animated.View>
 
       <TouchableOpacity>
-        <Text style={{ color: "#007AFF", marginBottom: 15 }}>Login/Signup</Text>
+        <Text style={{ color: "#007AFF", marginBottom: 15 }} onPress={() => router.push("/login")} >Login/Signup</Text>
       </TouchableOpacity>
 
       {/* Logout Button */}
