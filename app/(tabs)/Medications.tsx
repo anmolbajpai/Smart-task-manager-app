@@ -1,6 +1,7 @@
 import { DoseLog, MedicationSchedule } from '@/types/task';
 import { scheduleReminder } from '@/utils/notifications';
 import { loadDoseLogs, loadMedications, saveDoseLogs, saveMedications } from '@/utils/storage';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
     CheckCircle,
     Clock,
@@ -25,7 +26,7 @@ import {
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8888/taskmanager/medication';
-const AUTH_TOKEN = '70199'; // Consider moving this to a secure config file
+
 
 export default function MedicationsScreen() {
   const [medications, setMedications] = useState<MedicationSchedule[]>([]);
@@ -41,6 +42,20 @@ export default function MedicationsScreen() {
   });
   const [modalStep, setModalStep] = useState<'times' | 'details'>('times');
   const [numberOfTimes, setNumberOfTimes] = useState('');
+  const [authToken, setAuthToken] = useState<string | null>(null);
+
+useEffect(() => {
+  const fetchToken = async () => {
+    try {
+      const token = await AsyncStorage.getItem('token');
+      setAuthToken(token);
+      console.log('Fetched auth token:', token);  
+    } catch (e) {
+      console.error('Error loading auth token', e);
+    }
+  };
+  fetchToken();
+}, []);
 
   useEffect(() => {
     loadData();
@@ -53,10 +68,12 @@ export default function MedicationsScreen() {
   const fetchMedicationsFromAPI = async () => {
     setIsLoading(true);
     try {
+      const authToken = await AsyncStorage.getItem('token');
+      console.log('Fetching medications with auth token:', authToken);
       const response = await fetch(`${API_BASE_URL}/getMedications`, {
         method: 'GET',
         headers: {
-          'Authorization': AUTH_TOKEN,
+          'Authorization': authToken ? authToken : '',
           'Content-Type': 'application/json',
         },
       });
@@ -146,7 +163,7 @@ export default function MedicationsScreen() {
       const response = await fetch(`${API_BASE_URL}/addMedication`, {
         method: 'POST',
         headers: {
-          'Authorization': AUTH_TOKEN,
+          'Authorization': authToken ? authToken : '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),
