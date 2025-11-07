@@ -41,7 +41,7 @@ export default function LoginScreen() {
     console.log("Request body:", JSON.stringify(formData));
 
     try {
-      const res = await fetch("http://localhost:8888/taskmanager/auth/login", {
+      const res = await fetch("https://10.202.227.247:8888/taskmanager/auth/login", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -84,6 +84,8 @@ export default function LoginScreen() {
         onChangeText={setEmail}
         keyboardType="email-address"
       />
+
+      
       <TextInput
         placeholder="Password"
         secureTextEntry

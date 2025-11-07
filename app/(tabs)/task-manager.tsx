@@ -46,7 +46,7 @@ Notifications.setNotificationHandler({
 });
 
 // API Configuration
-const API_BASE_URL = 'http://localhost:8888/taskmanager';
+const API_BASE_URL = 'http://10.202.227.247:8888/taskmanager';
 
 export default function SmartTaskManager() {
   const [currentScreen, setCurrentScreen] = useState('home');

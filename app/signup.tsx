@@ -58,7 +58,7 @@ export default function SignupScreen() {
     console.log("Request body:", JSON.stringify(formData));
 
     try {
-      const res = await fetch("http://localhost:8888/taskmanager/auth/signup", {
+      const res = await fetch("https://10.202.227.247:8888/taskmanager/auth/signup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(formData),
