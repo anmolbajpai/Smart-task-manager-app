@@ -26,7 +26,7 @@ import {
 
 // API Configuration
 const API_BASE_URL = 'http://localhost:8888/taskmanager/medication';
-
+const AUTH_TOKEN = '70199'; // Consider moving this to a secure config file
 
 export default function MedicationsScreen() {
   const [medications, setMedications] = useState<MedicationSchedule[]>([]);
@@ -68,12 +68,10 @@ useEffect(() => {
   const fetchMedicationsFromAPI = async () => {
     setIsLoading(true);
     try {
-      const authToken = await AsyncStorage.getItem('token');
-      console.log('Fetching medications with auth token:', authToken);
       const response = await fetch(`${API_BASE_URL}/getMedications`, {
         method: 'GET',
         headers: {
-          'Authorization': authToken ? authToken : '',
+          'Authorization': AUTH_TOKEN,
           'Content-Type': 'application/json',
         },
       });
