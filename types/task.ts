@@ -17,6 +17,7 @@ export interface TaskItem {
   updatedAt?: string; // ISO string
   aiSuggested?: boolean;
   notificationId?: string; // ✅ added this line
+   repeatReminderId?: string;
   [key: string]: any;
 }
 

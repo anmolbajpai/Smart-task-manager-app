@@ -25,8 +25,9 @@ import {
 } from 'react-native';
 
 // API Configuration
+// const API_BASE_URL = 'http://192.168.1.34:8888/taskmanager/medication';
 const API_BASE_URL = 'http://localhost:8888/taskmanager/medication';
-const AUTH_TOKEN = '70199'; // Consider moving this to a secure config file
+const AUTH_TOKEN = AsyncStorage.getItem('token'); // Consider moving this to a secure config file
 
 export default function MedicationsScreen() {
   const [medications, setMedications] = useState<MedicationSchedule[]>([]);
@@ -48,6 +49,10 @@ useEffect(() => {
   const fetchToken = async () => {
     try {
       const token = await AsyncStorage.getItem('token');
+      if(!token){
+        console.warn('No auth token found in storage');
+        return;
+      }
       setAuthToken(token);
       console.log('Fetched auth token:', token);  
     } catch (e) {
@@ -67,11 +72,16 @@ useEffect(() => {
 
   const fetchMedicationsFromAPI = async () => {
     setIsLoading(true);
+    const AUTH_TOKEN = await AsyncStorage.getItem('token');
+    if(!AUTH_TOKEN){
+        console.warn('No auth token found in storage');
+        return;
+      }
     try {
       const response = await fetch(`${API_BASE_URL}/getMedications`, {
         method: 'GET',
         headers: {
-          'Authorization': AUTH_TOKEN,
+          'Authorization': AUTH_TOKEN || '',
           'Content-Type': 'application/json',
         },
       });
@@ -157,11 +167,12 @@ useEffect(() => {
         localtimeList: newMedication.times
       };
 
+      const AUTH_TOKEN = await AsyncStorage.getItem('token');
       // Make the API call
       const response = await fetch(`${API_BASE_URL}/addMedication`, {
         method: 'POST',
         headers: {
-          'Authorization': authToken ? authToken : '',
+          'Authorization': AUTH_TOKEN || '',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload),

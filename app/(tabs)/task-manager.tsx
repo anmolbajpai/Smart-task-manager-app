@@ -115,38 +115,89 @@ export default function SmartTaskManager() {
   };
 
   // Schedule notification for task
-  const scheduleTaskNotification = async (task: TaskItem) => {
-    if (!task.dueDate) return;
+  // const scheduleTaskNotification = async (task: TaskItem) => {
+  //   if (!task.dueDate) return;
 
-    try {
-      const triggerDate = new Date(task.dueDate);
-      const now = new Date();
+  //   try {
+  //     const triggerDate = new Date(task.dueDate);
+  //     const now = new Date();
       
-      // Only schedule if the due date is in the future
-      if (triggerDate > now) {
-        const seconds = Math.max(
-          1,
-          Math.ceil((triggerDate.getTime() - now.getTime()) / 1000)
-        );
-        const notificationId = await Notifications.scheduleNotificationAsync({
-          content: {
-            title: '⏰ Task Reminder',
-            body: `Time to work on: ${task.title}`,
-            data: { taskId: task.id },
-            sound: true,
-          },
-          trigger: {
-            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // ✅ required
-            seconds,
-          },
-        });
+  //     // Only schedule if the due date is in the future
+  //     if (triggerDate > now) {
+  //       const seconds = Math.max(
+  //         1,
+  //         Math.ceil((triggerDate.getTime() - now.getTime()) / 1000)
+  //       );
+  //       const notificationId = await Notifications.scheduleNotificationAsync({
+  //         content: {
+  //           title: '⏰ Task Reminder',
+  //           body: `Time to work on: ${task.title}`,
+  //           data: { taskId: task.id },
+  //           sound: true,
+  //         },
+  //         trigger: {
+  //           type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL, // ✅ required
+  //           seconds,
+  //         },
+  //       });
         
-        return notificationId;
-      }
-    } catch (error) {
-      console.error('Failed to schedule notification:', error);
+  //       return notificationId;  
+  //     }
+  //   } catch (error) {
+  //     console.error('Failed to schedule notification:', error);
+  //   }
+  // };
+
+
+
+  // Schedule notification for task
+const scheduleTaskNotification = async (task: TaskItem) => {
+  if (!task.dueDate) return;
+
+  try {
+    const triggerDate = new Date(task.dueDate);
+    const now = new Date();
+
+    // Only schedule if the due date is in the future
+    if (triggerDate > now) {
+      const seconds = Math.max(1, Math.ceil((triggerDate.getTime() - now.getTime()) / 1000));
+
+      // 🔔 Schedule the first due-time notification
+      const notificationId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⏰ Task Reminder',
+          body: `Time to complete: ${task.title}`,
+          data: { taskId: task.id },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds,
+        },
+      });
+
+      // 🕒 Schedule a repeating 10-minute reminder AFTER the due time
+      const repeatReminderId = await Notifications.scheduleNotificationAsync({
+        content: {
+          title: '⚠️ Pending Task Reminder',
+          body: `Your task "${task.title}" is still not completed!`,
+          data: { taskId: task.id },
+          sound: true,
+        },
+        trigger: {
+          type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
+          seconds: seconds + 600, // starts 10 min after due time
+          repeats: true, // every 10 minutes
+        },
+      });
+
+      return { notificationId, repeatReminderId };
     }
-  };
+  } catch (error) {
+    console.error('Failed to schedule notification:', error);
+  }
+};
+
 
   // Cancel notification
   const cancelTaskNotification = async (notificationId: string) => {
@@ -336,12 +387,21 @@ export default function SmartTaskManager() {
       };
 
       // Schedule notification if due date is set
+      // if (dueDateTime) {
+      //   const notificationId = await scheduleTaskNotification(newItem);
+      //   if (notificationId) {
+      //     newItem.notificationId = notificationId;
+      //   }
+      // }
+
       if (dueDateTime) {
-        const notificationId = await scheduleTaskNotification(newItem);
-        if (notificationId) {
-          newItem.notificationId = notificationId;
-        }
-      }
+  const notificationData = await scheduleTaskNotification(newItem);
+  if (notificationData) {
+    newItem.notificationId = notificationData.notificationId;
+    newItem.repeatReminderId = notificationData.repeatReminderId;
+  }
+}
+
 
       const updated = [...tasks, newItem];
       setTasks(updated);
@@ -361,13 +421,37 @@ export default function SmartTaskManager() {
   };
 
   // Toggle task completion
-  const toggleTask = (id: string): void => {
-    const updated: TaskItem[] = tasks.map((t: TaskItem) =>
-      t.id === id ? { ...t, completed: !t.completed } : t
-    );
-    setTasks(updated);
-    updateStats(updated);
-  };
+  // const toggleTask = (id: string): void => {
+  //   const updated: TaskItem[] = tasks.map((t: TaskItem) =>
+  //     t.id === id ? { ...t, completed: !t.completed } : t
+  //   );
+  //   setTasks(updated);
+  //   updateStats(updated);
+  // };
+
+
+  const toggleTask = async (id: string): Promise<void> => {
+  const updatedTasks: TaskItem[] = await Promise.all(
+    tasks.map(async (t: TaskItem) => {
+      if (t.id === id) {
+        const completed = !t.completed;
+
+        // 🧹 Stop notifications if user completes the task
+        if (completed) {
+          if (t.notificationId) await cancelTaskNotification(t.notificationId);
+          if (t.repeatReminderId) await cancelTaskNotification(t.repeatReminderId);
+        }
+
+        return { ...t, completed };
+      }
+      return t;
+    })
+  );
+
+  setTasks(updatedTasks);
+  updateStats(updatedTasks);
+};
+
 
   const deleteTask = (id: string) => {
     Alert.alert('Delete Task', 'Are you sure?', [
