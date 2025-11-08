@@ -1,7 +1,7 @@
 import { DoseLog, MedicationSchedule } from '@/types/task';
-import { scheduleReminder } from '@/utils/notifications';
 import { loadDoseLogs, loadMedications, saveDoseLogs, saveMedications } from '@/utils/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { scheduleMedicationNotification } from '@/utils/notifications';
 import {
     CheckCircle,
     Clock,
@@ -188,10 +188,11 @@ useEffect(() => {
       const updatedMedications = [...currentMedications, medication];
       setMedications(updatedMedications);
 
-      // Schedule reminders for each time
-      // newMedication.times.forEach((time) => {
-      //   scheduleReminder(medication, time);
-      // });
+// Schedule reminders for each selected time
+for (const time of newMedication.times) {
+  await scheduleMedicationNotification(medication, time);
+}
+
 
       Alert.alert('Success', 'Medication added successfully!');
       resetModal();
