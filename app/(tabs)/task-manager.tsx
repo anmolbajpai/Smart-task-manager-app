@@ -60,6 +60,12 @@ export default function SmartTaskManager() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [selectedTask, setSelectedTask] = useState<TaskItem | null>(null);
+  const [editTitle, setEditTitle] = useState('');
+  const [editDueDateTime, setEditDueDateTime] = useState<Date | null>(null);
+  const [editPriority, setEditPriority] = useState('medium');
+
 
   // Request notification permissions on mount
   useEffect(() => {
@@ -430,7 +436,7 @@ const scheduleTaskNotification = async (task: TaskItem) => {
   // };
 
 
-  const toggleTask = async (id: string): Promise<void> => {
+const toggleTask = async (id: string): Promise<void> => {
   const updatedTasks: TaskItem[] = await Promise.all(
     tasks.map(async (t: TaskItem) => {
       if (t.id === id) {
@@ -442,7 +448,7 @@ const scheduleTaskNotification = async (task: TaskItem) => {
           if (t.repeatReminderId) await cancelTaskNotification(t.repeatReminderId);
         }
 
-        return { ...t, completed };
+        return { ...t, completed } as TaskItem;
       }
       return t;
     })
@@ -515,6 +521,65 @@ const deleteTask =(id: string) => {
     updateStats(data);
   };
 
+  const openEditModal = (task: TaskItem) => {
+  setSelectedTask(task);
+  setEditTitle(task.title);
+  setEditPriority(task.priority || 'medium');
+  setEditDueDateTime(task.dueDate ? new Date(task.dueDate) : null);
+  setShowEditModal(true);
+};
+
+const editTaskInBackend = async (taskId: string) => {
+  const AUTH_TOKEN = await AsyncStorage.getItem('token');
+  if (!AUTH_TOKEN) {
+    Alert.alert('Error', 'User not authenticated.');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/tasks/edit/${taskId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: AUTH_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        newTask: editTitle,
+        newDuedatetime: editDueDateTime ? editDueDateTime.toISOString() : null,
+        newPriority: editPriority.toUpperCase(),
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`API Error: ${response.status}`);
+    }
+
+    const updatedTask = await response.json();
+    console.log('Task updated:', updatedTask);
+
+    // ✅ Update state
+    const updatedTasks = tasks.map((t) =>
+      t.id === taskId
+        ? {
+            ...t,
+            title: editTitle,
+            dueDate: editDueDateTime ? editDueDateTime.toISOString() : null,
+            priority: editPriority,
+          }
+        : t
+    );
+    // setTasks(updatedTasks);
+    // updateStats(updatedTasks);
+    setShowEditModal(false);
+
+    Alert.alert('Success', 'Task updated successfully!');
+  } catch (error) {
+    console.error('Failed to update task:', error);
+    Alert.alert('Error', 'Failed to update task on server.');
+  }
+};
+
+
   const getModeColor = (mode?: string) => {
     switch (mode) {
       case 'urgent': return '#EF4444';
@@ -584,9 +649,10 @@ const deleteTask =(id: string) => {
 </View>
 
         <View style={styles.taskActions}>
-          <TouchableOpacity onPress={() => Alert.alert('Edit', 'Edit feature coming soon!')}>
+          <TouchableOpacity onPress={() => openEditModal(item)}>
             <Edit3 size={18} color="#3B82F6" />
           </TouchableOpacity>
+
           <TouchableOpacity onPress={() => deleteTask(item.id)}>
             <Trash2 size={18} color="#E57373" />
           </TouchableOpacity>
@@ -721,6 +787,116 @@ const deleteTask =(id: string) => {
             </TouchableOpacity>
           </View>
         </View>
+        {/* Edit Task Modal */}
+<Modal visible={showEditModal} transparent animationType="slide">
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Edit Task</Text>
+        <TouchableOpacity onPress={() => setShowEditModal(false)}>
+          <X color="#333" size={24} />
+        </TouchableOpacity>
+      </View>
+
+      {/* Task Title Input */}
+      <TextInput
+        style={styles.input}
+        placeholder="Edit task title..."
+        value={editTitle}
+        onChangeText={setEditTitle}
+      />
+
+      {/* DateTime Picker */}
+      <View style={{ marginBottom: 15 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6 }}>
+          Update Due Date & Time
+        </Text>
+        <TouchableOpacity
+          style={styles.dateTimeBox}
+          onPress={() => setShowDatePicker(true)}
+        >
+          <Calendar size={18} color="#2563EB" />
+          <Text style={styles.dateTimeText}>
+            {editDueDateTime ? editDueDateTime.toLocaleString() : 'Pick date & time'}
+          </Text>
+        </TouchableOpacity>
+
+        {showDatePicker && (
+          <DateTimePicker
+            value={editDueDateTime || new Date()}
+            mode="date"
+            display="default"
+            onChange={(event, selectedDate) => {
+              setShowDatePicker(false);
+              if (selectedDate) {
+                setEditDueDateTime(selectedDate);
+                setShowTimePicker(true);
+              }
+            }}
+          />
+        )}
+
+        {showTimePicker && (
+          <DateTimePicker
+            value={editDueDateTime || new Date()}
+            mode="time"
+            display="default"
+            onChange={(event, selectedTime) => {
+              setShowTimePicker(false);
+              if (selectedTime && editDueDateTime) {
+                const finalDateTime = new Date(editDueDateTime);
+                finalDateTime.setHours(selectedTime.getHours());
+                finalDateTime.setMinutes(selectedTime.getMinutes());
+                setEditDueDateTime(finalDateTime);
+              }
+            }}
+          />
+        )}
+      </View>
+
+      {/* Priority Dropdown */}
+      <View style={{ marginBottom: 15 }}>
+        <Text style={{ fontSize: 14, fontWeight: '600', marginBottom: 6 }}>Priority</Text>
+        <View style={styles.dateTimeBox}>
+          {['low', 'medium', 'high', 'critical'].map((p) => (
+            <TouchableOpacity
+              key={p}
+              onPress={() => setEditPriority(p)}
+              style={{
+                backgroundColor: editPriority === p ? '#2563EB' : '#E5E7EB',
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                borderRadius: 6,
+                marginRight: 6,
+              }}
+            >
+              <Text style={{ color: editPriority === p ? '#fff' : '#333', fontWeight: '600' }}>
+                {p}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Save Button */}
+      <TouchableOpacity
+        style={[styles.saveBtn, (!editTitle.trim() || loading) && styles.saveBtnDisabled]}
+        onPress={() => editTaskInBackend(selectedTask!.id)}
+        disabled={!editTitle.trim() || loading}
+      >
+        {loading ? (
+          <ActivityIndicator color="#fff" />
+        ) : (
+          <>
+            <Save color="#fff" size={20} />
+            <Text style={styles.saveText}>Save Changes</Text>
+          </>
+        )}
+      </TouchableOpacity>
+    </View>
+  </View>
+</Modal>
+
       </Modal>
     </View>
   );

@@ -9,7 +9,8 @@ import {
     Plus,
     Save,
     Trash2,
-    X
+    X,
+    Edit3
 } from 'lucide-react-native';
 import React, { useEffect, useState } from 'react';
 import {
@@ -34,6 +35,9 @@ export default function MedicationsScreen() {
   const [doseLogs, setDoseLogs] = useState<DoseLog[]>([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editingMedication, setEditingMedication] = useState<MedicationSchedule | null>(null);
+
   const [newMedication, setNewMedication] = useState({
     name: '',
     dosage: '',
@@ -120,6 +124,63 @@ useEffect(() => {
       setIsLoading(false);
     }
   };
+  const openEditModal = (med: MedicationSchedule) => {
+  setEditingMedication({ ...med });
+  setShowEditModal(true);
+};
+
+const updateMedication = async () => {
+  if (!editingMedication) return;
+
+  try {
+    setIsLoading(true);
+    const AUTH_TOKEN = await AsyncStorage.getItem('token');
+    if (!AUTH_TOKEN) {
+      Alert.alert('Error', 'No authorization token found.');
+      return;
+    }
+
+    const payload = {
+      name: editingMedication.name,
+      dosage: editingMedication.dosage,
+      frequency: `${editingMedication.times.length} times a day`,
+      notes: editingMedication.notes,
+      times: editingMedication.times.length,
+      priority: "low",
+      localtimeList: editingMedication.times,
+    };
+
+    const response = await fetch(`${API_BASE_URL}/edit/${editingMedication.id}`, {
+      method: 'PUT',
+      headers: {
+        'Authorization': AUTH_TOKEN,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to update medication');
+    }
+
+    const updatedList = medications.map(m =>
+      m.id === editingMedication.id ? editingMedication : m
+    );
+
+    setMedications(updatedList);
+    await saveMedications(updatedList);
+
+    Alert.alert('Success', 'Medication updated successfully!');
+    setShowEditModal(false);
+  } catch (error) {
+    console.error('Error updating medication:', error);
+    Alert.alert('Error', 'Failed to update medication. Please try again.');
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+
 
   // const loadData = async () => {
   //   // Fetch medications from API
@@ -395,6 +456,9 @@ for (const time of newMedication.times) {
               {med.notes && (
                 <Text style={styles.notesText}>📝 {med.notes}</Text>
               )}
+              <TouchableOpacity onPress={() => openEditModal(med)}>
+                <Edit3 size={18} color="#3B82F6" />
+              </TouchableOpacity>
 
               <TouchableOpacity
                 onPress={() => deleteMedication(med.id)}
@@ -560,6 +624,93 @@ for (const time of newMedication.times) {
             </ScrollView>
           </View>
         </View>
+        {/* Edit Medication Modal */}
+<Modal
+  visible={showEditModal}
+  transparent
+  animationType="slide"
+  onRequestClose={() => setShowEditModal(false)}
+>
+  <View style={styles.modalOverlay}>
+    <View style={styles.modalContainer}>
+      <View style={styles.modalHeader}>
+        <Text style={styles.modalTitle}>Edit Medication</Text>
+        <TouchableOpacity onPress={() => setShowEditModal(false)}>
+          <X size={24} color="#333" />
+        </TouchableOpacity>
+      </View>
+
+      {editingMedication && (
+        <ScrollView showsVerticalScrollIndicator={false}>
+          <TextInput
+            style={styles.input}
+            placeholder="Medication name"
+            value={editingMedication.name}
+            onChangeText={(text) =>
+              setEditingMedication({ ...editingMedication, name: text })
+            }
+          />
+
+          <TextInput
+            style={styles.input}
+            placeholder="Dosage"
+            value={editingMedication.dosage}
+            onChangeText={(text) =>
+              setEditingMedication({ ...editingMedication, dosage: text })
+            }
+          />
+
+          <TextInput
+            style={[styles.input, styles.textArea]}
+            placeholder="Notes"
+            value={editingMedication.notes}
+            onChangeText={(text) =>
+              setEditingMedication({ ...editingMedication, notes: text })
+            }
+            multiline
+          />
+
+          <View style={styles.timesSection}>
+            <Text style={styles.label}>Times</Text>
+            {editingMedication.times.map((time, idx) => (
+              <View key={idx} style={styles.timeInputRow}>
+                <Text style={styles.timeLabel}>Time {idx + 1}</Text>
+                <TextInput
+                  style={styles.timeInput}
+                  value={time}
+                  onChangeText={(text) => {
+                    const newTimes = [...editingMedication.times];
+                    newTimes[idx] = text;
+                    setEditingMedication({
+                      ...editingMedication,
+                      times: newTimes,
+                    });
+                  }}
+                />
+              </View>
+            ))}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.saveButton, isLoading && styles.saveButtonDisabled]}
+            onPress={updateMedication}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Save size={20} color="#fff" />
+                <Text style={styles.saveButtonText}>Save Changes</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        </ScrollView>
+      )}
+    </View>
+  </View>
+</Modal>
+
       </Modal>
     </View>
   );
