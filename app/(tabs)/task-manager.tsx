@@ -453,27 +453,62 @@ const scheduleTaskNotification = async (task: TaskItem) => {
 };
 
 
-  const deleteTask = (id: string) => {
-    Alert.alert('Delete Task', 'Are you sure?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: async () => {
+const deleteTask =(id: string) => {
+  Alert.alert('Delete Task', 'Are you sure?', [
+    { text: 'Cancel', style: 'cancel' },
+    {
+      text: 'Delete',
+      style: 'destructive',
+      onPress: async () => {
+        try {
+          const AUTH_TOKEN = await AsyncStorage.getItem('token');
+          if (!AUTH_TOKEN) {
+            Alert.alert('Error', 'User not authenticated.');
+            return;
+          }
+
+          // Find task to delete
           const taskToDelete = tasks.find((t) => t.id === id);
-          
-          // Cancel notification if exists
+
+          // Cancel notifications (if any)
           if (taskToDelete?.notificationId) {
             await cancelTaskNotification(taskToDelete.notificationId);
           }
-          
+          if (taskToDelete?.repeatReminderId) {
+            await cancelTaskNotification(taskToDelete.repeatReminderId);
+          }
+
+          // 🔥 Call backend API
+          const response = await fetch(`${API_BASE_URL}/tasks/deleteTask/${id}`, {
+            method: 'DELETE',
+            headers: {
+              Authorization: AUTH_TOKEN,
+              'Content-Type': 'application/json',
+            },
+          });
+
+          if (!response.ok) {
+            const msg = `Failed to delete task: ${response.status}`;
+            console.error(msg);
+            Alert.alert('Error', msg);
+            return;
+          }
+
+          // Update frontend state after success
           const updated = tasks.filter((t) => t.id !== id);
           setTasks(updated);
           updateStats(updated);
-        },
-      },
-    ]);
-  };
+
+          Alert.alert('Deleted', 'Task deleted successfully!');
+        } catch (error) {
+          console.error('Error deleting task:', error);
+          Alert.alert('Error', 'Failed to delete task from server.');
+        }
+    },
+    },
+  ]);
+};
+
 
   const handleDragEnd = ({ data }: { data: TaskItem[] }) => {
     setTasks(data);
