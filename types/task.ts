@@ -22,7 +22,7 @@ export interface TaskItem {
 }
 
 export interface MedicationSchedule {
-  id: string;
+  id: number;
   name: string;
   dosage: string; // e.g., "500mg"
   frequency: 'daily' | 'weekly' | 'custom';

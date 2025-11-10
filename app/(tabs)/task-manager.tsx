@@ -46,7 +46,7 @@ Notifications.setNotificationHandler({
 });
 
 // API Configuration
-const API_BASE_URL = 'http://10.202.227.247:8888/taskmanager';
+const API_BASE_URL = 'http://localhost:8888/taskmanager';
 
 export default function SmartTaskManager() {
   const [currentScreen, setCurrentScreen] = useState('home');
@@ -529,12 +529,25 @@ const scheduleTaskNotification = async (task: TaskItem) => {
             )}
           </View>
           {item.priority && (
-              <View style={styles.metaItem}>
-                <Calendar size={14} color="#6B7280" />
-                <Text style={styles.saveBtn}>{(item.priority)}</Text>
+              <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+                <Text style={styles.priorityText}>{item.priority.toUpperCase()}</Text>
               </View>
             )}
         </View>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4 }}>
+  {item.dueDate && (
+    <View style={styles.metaItem}>
+      <Calendar size={14} color="#6B7280" />
+      <Text style={styles.metaText}>{new Date(item.dueDate).toLocaleString()}</Text>
+    </View>
+  )}
+  {item.priority && (
+    <View style={[styles.priorityBadge, { backgroundColor: getPriorityColor(item.priority) }]}>
+      <Text style={styles.priorityText}>{item.priority}</Text>
+    </View>
+  )}
+</View>
+
         <View style={styles.taskActions}>
           <TouchableOpacity onPress={() => Alert.alert('Edit', 'Edit feature coming soon!')}>
             <Edit3 size={18} color="#3B82F6" />
@@ -775,4 +788,22 @@ const styles = StyleSheet.create({
   },
   saveBtnDisabled: { backgroundColor: '#9CA3AF' },
   saveText: { color: '#fff', fontWeight: '600', fontSize: 16, marginLeft: 8 },
+
+  priorityBadge: {
+  paddingVertical: 4,
+  paddingHorizontal: 10,
+  borderRadius: 8,
+  alignSelf: 'flex-start',
+  marginLeft: 8,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
+
+priorityText: {
+  color: '#fff',
+  fontWeight: '700',
+  fontSize: 12,
+  textTransform: 'capitalize',
+},
+
 });

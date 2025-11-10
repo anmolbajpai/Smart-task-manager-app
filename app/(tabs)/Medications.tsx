@@ -27,7 +27,7 @@ import {
 // API Configuration
 // const API_BASE_URL = 'http://192.168.1.34:8888/taskmanager/medication';
 const API_BASE_URL = 'http://localhost:8888/taskmanager/medication';
-const AUTH_TOKEN = AsyncStorage.getItem('token'); // Consider moving this to a secure config file
+// const AUTH_TOKEN = AsyncStorage.getItem('token'); // Consider moving this to a secure config file
 
 export default function MedicationsScreen() {
   const [medications, setMedications] = useState<MedicationSchedule[]>([]);
@@ -43,7 +43,7 @@ export default function MedicationsScreen() {
   });
   const [modalStep, setModalStep] = useState<'times' | 'details'>('times');
   const [numberOfTimes, setNumberOfTimes] = useState('');
-  const [authToken, setAuthToken] = useState<string | null>(null);
+  // const [authToken, setAuthToken] = useState<string | null>(null);
 
 useEffect(() => {
   const fetchToken = async () => {
@@ -53,7 +53,7 @@ useEffect(() => {
         console.warn('No auth token found in storage');
         return;
       }
-      setAuthToken(token);
+      // setAuthToken(token);
       console.log('Fetched auth token:', token);  
     } catch (e) {
       console.error('Error loading auth token', e);
@@ -63,7 +63,7 @@ useEffect(() => {
 }, []);
 
   useEffect(() => {
-    loadData();
+    fetchMedicationsFromAPI();
   }, []);
 
   useEffect(() => {
@@ -94,7 +94,7 @@ useEffect(() => {
       
       // Transform API response to match local MedicationSchedule format
       const transformedMedications: MedicationSchedule[] = data.map((med: any, index: number) => ({
-        id: `med_${Date.now()}_${index}`, // Generate unique ID
+        id: med.id, // Generate unique ID
         name: med.name,
         dosage: med.dosage,
         frequency: 'daily', // Default to daily since API returns "X times a day"
@@ -121,14 +121,14 @@ useEffect(() => {
     }
   };
 
-  const loadData = async () => {
-    // Fetch medications from API
-    await fetchMedicationsFromAPI();
+  // const loadData = async () => {
+  //   // Fetch medications from API
+  //   await fetchMedicationsFromAPI();
     
-    // Load dose logs from local storage
-    const loadedLogs = await loadDoseLogs();
-    setDoseLogs(loadedLogs);
-  };
+  //   // Load dose logs from local storage
+  //   const loadedLogs = await loadDoseLogs();
+  //   setDoseLogs(loadedLogs);
+  // };
 
   const handleTimesSubmit = () => {
     const count = parseInt(numberOfTimes);
@@ -231,39 +231,79 @@ for (const time of newMedication.times) {
     setShowAddModal(false);
   };
 
-  const logDose = (medicationId: string) => {
-    const medication = medications.find((m) => m.id === medicationId);
-    if (!medication) return;
+  // const logDose = (medicationId: number) => {
+  //   const medication = medications.find((m) => m.id === medicationId);
+  //   if (!medication) return;
 
-    const newLog: DoseLog = {
-      id: Date.now().toString(),
-      medicationId,
-      takenAt: new Date().toISOString(),
-      dose: medication.dosage,
-    };
+  //   const newLog: DoseLog = {
+  //     id: Date.now().toString(),
+  //     medicationId,
+  //     takenAt: new Date().toISOString(),
+  //     dose: medication.dosage,
+  //   };
 
-    setDoseLogs([...doseLogs, newLog]);
-    saveDoseLogs([...doseLogs, newLog]);
+  //   setDoseLogs([...doseLogs, newLog]);
+  //   saveDoseLogs([...doseLogs, newLog]);
 
-    Alert.alert('Success', 'Dose logged successfully!');
-  };
+  //   Alert.alert('Success', 'Dose logged successfully!');
+  // };
 
-  const deleteMedication = (id: string) => {
-    Alert.alert(
-      'Delete Medication',
-      'Are you sure you want to delete this medication?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: () => {
-            setMedications(medications.filter((m) => m.id !== id));
-          },
+  const deleteMedication = (id: number) => {
+    console.log('Deleting medication with id:', id);
+  Alert.alert(
+    'Delete Medication',
+    'Are you sure you want to delete this medication?',
+    [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            setIsLoading(true);
+
+            const AUTH_TOKEN = await AsyncStorage.getItem('token');
+            if (!AUTH_TOKEN) {
+              Alert.alert('Error', 'No authorization token found.');
+              setIsLoading(false);
+              return;
+            }
+
+            // API call
+            const response = await fetch(`${API_BASE_URL}/delete/${id}`, {
+              method: 'DELETE',
+              headers: {
+                'Authorization': AUTH_TOKEN,
+                'Content-Type': 'application/json',
+              },
+            });
+
+            if (!response.ok) {
+              const errText = await response.text();
+              throw new Error(errText || 'Failed to delete medication');
+            }
+
+            // Remove from local state
+            const updatedMedications = medications.filter((m) => m.id !== id);
+            setMedications(updatedMedications);
+            await saveMedications(updatedMedications);
+
+            Alert.alert('Success', 'Medication deleted successfully!');
+          } catch (error) {
+            console.error('Error deleting medication:', error);
+            Alert.alert(
+              'Error',
+              error instanceof Error ? error.message : 'Failed to delete medication. Please try again.'
+            );
+          } finally {
+            setIsLoading(false);
+          }
         },
-      ]
-    );
-  };
+      },
+    ]
+  );
+};
+
 
   const addTime = () => {
     const newTimes = [...newMedication.times, '09:00'];
@@ -285,13 +325,13 @@ for (const time of newMedication.times) {
     setNewMedication({ ...newMedication, times: newTimes });
   };
 
-  const getTodayDoses = (medicationId: string) => {
-    const today = new Date().toDateString();
-    return doseLogs.filter(
-      (log) =>
-        log.medicationId === medicationId && new Date(log.takenAt).toDateString() === today
-    );
-  };
+  // const getTodayDoses = (medicationId: string) => {
+  //   const today = new Date().toDateString();
+  //   return doseLogs.filter(
+  //     (log) =>
+  //       log.medicationId === medicationId && new Date(log.takenAt).toDateString() === today
+  //   );
+  // };
 
   return (
     <View style={styles.container}>
@@ -324,8 +364,8 @@ for (const time of newMedication.times) {
                   <Text style={styles.medicationName}>{med.name}</Text>
                   <Text style={styles.medicationDosage}>{med.dosage}</Text>
                 </View>
-                <TouchableOpacity onPress={() => logDose(med.id)} style={styles.logButton}>
-                  <CheckCircle size={24} color="#10B981" />
+                <TouchableOpacity style={styles.logButton}>
+                  <CheckCircle size={24} color="#040404ff" />
                   <Text style={styles.logButtonText}>Log</Text>
                 </TouchableOpacity>
               </View>
@@ -344,13 +384,13 @@ for (const time of newMedication.times) {
                 </View>
               </View>
 
-              {getTodayDoses(med.id).length > 0 && (
+              {/* {getTodayDoses(med.id).length > 0 && (
                 <View style={styles.todayDoses}>
                   <Text style={styles.todayDosesText}>
                     Taken today: {getTodayDoses(med.id).length}
                   </Text>
                 </View>
-              )}
+              )} */}
 
               {med.notes && (
                 <Text style={styles.notesText}>📝 {med.notes}</Text>
