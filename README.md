@@ -1,50 +1,165 @@
-# Welcome to your Expo app 👋
+# 📱 Smart Task Manager
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A **Smart Task Manager mobile application** built with **React Native** to help users create, organize, prioritize, and manage their daily tasks efficiently.
 
-## Get started
+The app provides a simple and user-friendly interface for managing tasks based on their **priority, completion status, and deadlines**.
 
-1. Install dependencies
+## ✨ Features
 
-   ```bash
-   npm install
-   ```
+* 🔐 User Authentication
+* 📝 Create, edit, and delete tasks
+* ✅ Mark tasks as completed
+* 🚦 Task priority management
 
-2. Start the app
+  * High
+  * Medium
+  * Low
+* 📅 Set task due dates
+* 🤖 AI-powered task prioritization
+* 🔄 Real-time task updates
+* 📱 Responsive mobile UI
+* 🚪 Secure logout
+* 🔗 REST API integration
 
-   ```bash
-   npx expo start
-   ```
+## 🛠️ Tech Stack
 
-In the output, you'll find options to open the app in a
+### Frontend
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
+* React Native
+* JavaScript
+* React Navigation
+* Axios
 
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
+### Backend
 
-## Get a fresh project
+* Java
+* Spring Boot
+* REST APIs
+* JWT Authentication
 
-When you're ready, run:
+### Database
 
-```bash
-npm run reset-project
+* MySQL
+
+### AI
+
+* Google Gemini API
+
+### Tools
+
+* Git & GitHub
+* Postman
+* VS Code
+
+## 🏗️ Application Flow
+
+```text
+React Native App
+       ↓
+   REST APIs
+       ↓
+  Spring Boot
+       ↓
+     MySQL
+       ↓
+   Gemini AI
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## 🤖 AI Task Prioritization
 
-## Learn more
+The application uses **Google Gemini API** to intelligently analyze task information such as the task description and deadline.
 
-To learn more about developing your project with Expo, look at the following resources:
+Based on the provided information, the AI can suggest an appropriate priority for the task.
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+Users can also manually change the suggested priority according to their requirements.
 
-## Join the community
+## 📱 Main Screens
 
-Join our community of developers creating universal apps.
+* Login / Signup
+* Home / Task Dashboard
+* Add Task
+* Edit Task
+* Task Details
+* Profile / Logout
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## 🚀 Getting Started
+
+### 1. Clone the repository
+
+```bash
+git clone https://github.com/your-username/smart-task-manager.git
+```
+
+### 2. Navigate to the project
+
+```bash
+cd smart-task-manager
+```
+
+### 3. Install dependencies
+
+```bash
+npm install
+```
+
+### 4. Start the application
+
+```bash
+npx react-native start
+```
+
+For Android:
+
+```bash
+npx react-native run-android
+```
+
+## 🔑 Environment Variables
+
+Create a `.env` file and configure the required API values:
+
+```env
+API_BASE_URL=your_backend_url
+GEMINI_API_KEY=your_gemini_api_key
+```
+
+> Never commit API keys or other sensitive credentials to GitHub.
+
+## 📂 Project Structure
+
+```text
+smart-task-manager/
+│
+├── src/
+│   ├── components/
+│   ├── screens/
+│   ├── navigation/
+│   ├── services/
+│   ├── utils/
+│   └── assets/
+│
+├── App.js
+├── package.json
+└── README.md
+```
+
+## 🔮 Future Improvements
+
+* 🔔 Push notifications for upcoming deadlines
+* 📊 Task analytics and productivity statistics
+* 🌙 Dark mode
+* 🔄 Offline task support
+* 👥 Task sharing and collaboration
+* 🎙️ Voice-based task creation
+
+## 👨‍💻 Author
+
+**Anmol Bajpai**
+
+* GitHub: [anmolbajpai](https://github.com/anmolbajpai)
+* LinkedIn: [Anmol Bajpai](https://linkedin.com/in/anmolbajpai1)
+* Email: [anmolbajpai164@gmail.com](mailto:anmolbajpai164@gmail.com)
+
+## 📄 License
+
+This project is developed for learning, portfolio, and demonstration purposes.
